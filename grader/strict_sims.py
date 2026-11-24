@@ -1,11 +1,18 @@
-"""Transports that behave as the API notes say production does.
+"""Transports that behave as production does, the way the captures in workspace/logs show.
 
-These are the grader's own. They do not import or depend on workspace/sim, so
-editing the developer simulators cannot change a score.
+These are the grader's own. They import nothing from the workspace, so nothing
+an attempt edits can change how they behave.
 """
 import datetime
 
-from export.errors import TransportError
+
+class Fault(Exception):
+    """A core's fault. The sandbox hands it to the attempt as a TransportError."""
+
+    def __init__(self, status, body=None):
+        super().__init__(f"{status}: {body}")
+        self.status = status
+        self.body = body
 
 
 class StrictKestrel:
@@ -19,16 +26,16 @@ class StrictKestrel:
     def call(self, op, params):
         self.calls.append((op, dict(params)))
         if self._fault_on_call is not None and len(self.calls) >= self._fault_on_call:
-            raise TransportError(503, "K-503 transient fault")  # from this call on, the core stays down
+            raise Fault(503, "K-503 transient fault")  # from this call on, the core stays down
         account_id = params["account_id"]
         if account_id not in self._accounts:
-            raise TransportError(404, f"K-404 no such account {account_id}")
+            raise Fault(404, f"K-404 no such account {account_id}")
         if op == "ListTransactions":
             rows = [r for r in self._accounts[account_id] if r["posted"].startswith(params["period"])]
         elif op == "ListHolds":
             rows = self._holds.get(account_id, [])
         else:
-            raise TransportError(400, f"K-400 unknown operation {op}")
+            raise Fault(400, f"K-400 unknown operation {op}")
         size = max(1, min(int(params.get("page_size", 25)), 100))
         start = 0
         if params.get("page_token") is not None:
@@ -56,17 +63,17 @@ class StrictTern:
     def call(self, op, params):
         self.calls.append((op, dict(params)))
         if len(self.calls) > 200:
-            raise TransportError(429, {"error": "too_many_requests"})
+            raise Fault(429, {"error": "too_many_requests"})
         if op != "GetPostings":
-            raise TransportError(400, {"error": "unknown_operation", "operation": op})
+            raise Fault(400, {"error": "unknown_operation", "operation": op})
         account_id = params["account_id"]
         if account_id not in self._accounts:
-            raise TransportError(404, {"error": "account_not_found", "account_id": account_id})
+            raise Fault(404, {"error": "account_not_found", "account_id": account_id})
         try:
             first = datetime.date.fromisoformat(params["from_date"])
             last = datetime.date.fromisoformat(params["to_date"])
         except (KeyError, TypeError, ValueError):
-            raise TransportError(400, {"error": "invalid_date_range"})
+            raise Fault(400, {"error": "invalid_date_range"})
         rows = [
             r for r in self._accounts[account_id]
             if first <= datetime.date.fromisoformat(r["value_date"]) <= last

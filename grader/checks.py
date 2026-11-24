@@ -1,18 +1,33 @@
-"""The scored checks. Each returns (points, max_points, detail)."""
+"""The scored checks.
+
+Each check takes the path of the attempt's workspace and returns (points,
+detail). CHECKS at the bottom is the one table of names, maximum points and
+descriptions; the README's table is written from it.
+"""
+import csv
+import io
 import pathlib
 
-from export import build_holds_report, build_statement
-from export.errors import ExportError
-
+from sandbox import invoke
 from strict_sims import Directory, StrictKestrel, StrictTern
 
 PERIOD = "2026-02"
 GOLDEN = pathlib.Path(__file__).parent / "golden"
-_WORDS = ["Card purchase", "Payroll deposit", "ATM withdrawal", "Transfer in", "Bill payment, utilities", "Check 2041"]
+_CREDITS = ("Payroll deposit", "Transfer in")
+_DEBITS = ("Card purchase", "ATM withdrawal", "Bill payment, utilities", "Check 2041")
+_WORDS = (_DEBITS[0], _CREDITS[0], _DEBITS[1], _CREDITS[1], _DEBITS[2], _DEBITS[3])
 
+
+# ---- the grader's own data and its own idea of a correct statement ----
 
 def money(cents):
     return f"{'-' if cents < 0 else ''}{abs(cents) // 100}.{abs(cents) % 100:02d}"
+
+
+def to_csv(rows):
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerows(rows)
+    return out.getvalue()
 
 
 def kestrel_rows(prefix, count):
@@ -20,7 +35,7 @@ def kestrel_rows(prefix, count):
     for i in range(count):
         cents = (i * 211 + 475) % 12000 + 50
         word = _WORDS[(i * 5) % len(_WORDS)]
-        if word not in ("Payroll deposit", "Transfer in"):
+        if word in _DEBITS:
             cents = -cents
         rows.append({"id": f"{prefix}{i:05d}", "posted": f"{PERIOD}-{(i * 7 % 28) + 1:02d}",
                      "description": word, "amount": money(cents), "_cents": cents})
@@ -31,31 +46,16 @@ def tern_rows(prefix, count, sides=("CREDIT",), statuses=("POSTED",)):
     rows = []
     for i in range(count):
         side = sides[i % len(sides)]
-        narrative = (("Payroll deposit", "Transfer in")[i % 2] if side == "CREDIT"
-                     else ("Card purchase", "ATM withdrawal", "Bill payment, utilities", "Check 2041")[i % 4])
+        words = _CREDITS if side == "CREDIT" else _DEBITS
         rows.append({"posting_id": f"{prefix}{i:05d}", "value_date": f"{PERIOD}-{(i * 11 % 28) + 1:02d}",
                      "amount_minor": 1999 + i * 333, "side": side,
-                     "narrative": narrative, "status": statuses[i % len(statuses)]})
+                     "narrative": words[i % len(words)], "status": statuses[i % len(statuses)]})
     return rows
 
 
-def expected(member_id, accounts):
-    """The statement the runbook describes. accounts: [(account_id, [(date, id, text, cents)])]."""
-    import csv, io
-    out = io.StringIO()
-    w = csv.writer(out, lineterminator="\n")
-    w.writerow(["member", member_id, "period", PERIOD])
-    w.writerow(["account", "date", "id", "description", "amount"])
-    total = 0
-    for account_id, lines in accounts:
-        subtotal = 0
-        for date, ident, text, cents in sorted(lines):
-            w.writerow([account_id, date, ident, text, money(cents)])
-            subtotal += cents
-        w.writerow(["subtotal", account_id, "", "", money(subtotal)])
-        total += subtotal
-    w.writerow(["total", "", "", "", money(total)])
-    return out.getvalue()
+def public(rows):
+    """Rows as a core returns them, without the grader's private fields."""
+    return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
 
 
 def kestrel_lines(rows):
@@ -68,159 +68,178 @@ def tern_lines(rows):
             for r in rows if r["status"] == "POSTED" and r["value_date"].startswith(PERIOD)]
 
 
-def public(rows):
-    return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
+def expected(member_id, accounts):
+    """The statement the runbook describes. accounts: [(account_id, [(date, id, text, cents)])]."""
+    rows = [["member", member_id, "period", PERIOD], ["account", "date", "id", "description", "amount"]]
+    total = 0
+    for account_id, lines in accounts:
+        subtotal = sum(cents for *_, cents in lines)
+        rows += [[account_id, date, ident, text, money(cents)] for date, ident, text, cents in sorted(lines)]
+        rows.append(["subtotal", account_id, "", "", money(subtotal)])
+        total += subtotal
+    rows.append(["total", "", "", "", money(total)])
+    return to_csv(rows)
 
 
-def run(member_id, directory, kestrel=None, tern=None):
-    return build_statement(member_id, PERIOD, directory=directory,
-                           kestrel=kestrel or StrictKestrel({}), tern=tern or StrictTern({}))
+# ---- helpers ----
+
+def statement(ws, member_id, directory, kestrel=None, tern=None):
+    return invoke(ws, "statement", member_id, period=PERIOD, directory=directory,
+                  kestrel=kestrel or StrictKestrel({}), tern=tern or StrictTern({}))
 
 
-def compare(got, want, points):
-    if got == want:
-        return points, points, "statement matches"
-    got_l, want_l = got.splitlines(), want.splitlines()
-    if len(got_l) != len(want_l):
-        return 0, points, f"statement has {len(got_l)} lines, expected {len(want_l)}"
-    wrong = sum(1 for a, b in zip(got_l, want_l) if a != b)
-    return 0, points, f"{wrong} of {len(want_l)} lines differ from the expected statement"
+def compare(result, want, points):
+    """Full points for exactly the expected text, nothing for anything else."""
+    if result.error:
+        return 0, f"{result.error}: {result.message}"[:160]
+    if result.text == want:
+        return points, "matches"
+    got, exp = result.text.splitlines(), want.splitlines()
+    if len(got) != len(exp):
+        return 0, f"{len(got)} lines, expected {len(exp)}"
+    return 0, f"{sum(a != b for a, b in zip(got, exp))} of {len(exp)} lines differ"
 
 
-def check_regression():
+def failure(result, share, label, named=True, read=False):
+    """Points for a case that must fail: full for a clean ExportError, half for any other refusal."""
+    if result.error is None:
+        return 0, f"{label}: a result was still produced"
+    if result.error in ("Timeout", "Crashed"):
+        return 0, f"{label}: {result.error.lower()}"
+    if result.error != "ExportError":
+        return share / 2, f"{label}: raises {result.error}, not ExportError"
+    if read:
+        return share / 2, f"{label}: ExportError, but the account was read"
+    if not named:
+        return share / 2, f"{label}: ExportError, but the account is not named"
+    return share, f"{label}: ExportError"
+
+
+# ---- the checks ----
+
+def check_regression(ws):
     rows = kestrel_rows("KR", 12)
     d = Directory({"2001": ["K-2001-S"]}, {"K-2001-S": "KESTREL"})
-    got = run("2001", d, StrictKestrel({"K-2001-S": public(rows)}))
-    return compare(got, (GOLDEN / "legacy_2001.csv").read_text(), 10)
+    result = statement(ws, "2001", d, StrictKestrel({"K-2001-S": public(rows)}))
+    return compare(result, (GOLDEN / "legacy_2001.csv").read_text(), 10)
 
 
-def check_kestrel_paging():
+def check_kestrel_paging(ws):
     rows = kestrel_rows("KP", 165)
     d = Directory({"2002": ["K-2002-C"]}, {"K-2002-C": "KESTREL"})
-    got = run("2002", d, StrictKestrel({"K-2002-C": public(rows)}))
-    return compare(got, expected("2002", [("K-2002-C", kestrel_lines(rows))]), 15)
+    result = statement(ws, "2002", d, StrictKestrel({"K-2002-C": public(rows)}))
+    return compare(result, expected("2002", [("K-2002-C", kestrel_lines(rows))]), 15)
 
 
-def check_holds_twin():
+def check_holds_twin(ws):
     holds = [{"id": f"KH{i:05d}", "placed": f"{PERIOD}-{(i * 3 % 28) + 1:02d}",
               "reason": "Check deposit hold" if i % 2 else "Card authorization", "amount": money(2500 + i * 125)}
              for i in range(80)]
     d = Directory({"2010": ["K-2010-C"]}, {"K-2010-C": "KESTREL"})
-    got = build_holds_report("2010", directory=d, kestrel=StrictKestrel({"K-2010-C": []}, holds={"K-2010-C": holds}))
-    import csv, io
-    out = io.StringIO()
-    w = csv.writer(out, lineterminator="\n")
-    w.writerow(["account", "placed", "id", "reason", "amount"])
-    for h in sorted(holds, key=lambda h: (h["placed"], h["id"])):
-        w.writerow(["K-2010-C", h["placed"], h["id"], h["reason"], h["amount"]])
-    return compare(got, out.getvalue(), 10)
+    kestrel = StrictKestrel({"K-2010-C": []}, holds={"K-2010-C": holds})
+    result = invoke(ws, "holds", "2010", directory=d, kestrel=kestrel)
+    want = to_csv([["account", "placed", "id", "reason", "amount"]]
+                  + [["K-2010-C", h["placed"], h["id"], h["reason"], h["amount"]]
+                     for h in sorted(holds, key=lambda h: (h["placed"], h["id"]))])
+    return compare(result, want, 10)
 
 
-def check_no_silent_partial():
-    # 250 rows: more than the largest page the core allows, so every correct
-    # client needs a second call, whatever page size it chose.
+def check_no_silent_partial(ws):
+    # 250 rows is more than the largest page the core allows, so every correct
+    # client needs a second call whatever page size it chose.
     rows = kestrel_rows("KF", 250)
     d = Directory({"2008": ["K-2008-C"]}, {"K-2008-C": "KESTREL"})
-    points, notes = 0, []
-    cases = [("the core going down mid-list", {"fault_on_call": 2}),
-             ("a list that ends early while the core reports more rows", {"cut_short_at": 130})]
-    for label, kwargs in cases:
-        try:
-            run("2008", d, StrictKestrel({"K-2008-C": public(rows)}, **kwargs))
-        except ExportError:
-            points += 5
-            notes.append(f"{label}: ExportError")
-        except Exception as e:  # noqa: BLE001
-            points += 2.5
-            notes.append(f"{label}: raises {type(e).__name__}, not ExportError")
-        else:
-            notes.append(f"{label}: a statement was still produced")
-    return points, 10, "; ".join(notes)
+
+    def run(**faults):
+        return statement(ws, "2008", d, StrictKestrel({"K-2008-C": public(rows)}, **faults))
+
+    # Refusing everything is not the skill being scored: the same account must
+    # export correctly when nothing is wrong.
+    if compare(run(), expected("2008", [("K-2008-C", kestrel_lines(rows))]), 1)[0] == 0:
+        return 0, "not scored: the same account does not export correctly when the core is healthy"
+    scored = [failure(run(fault_on_call=2), 5, "core down mid-list"),
+              failure(run(cut_short_at=130), 5, "list ends early while the core reports more rows")]
+    return sum(p for p, _ in scored), "; ".join(note for _, note in scored)
 
 
-def _tern_case(member, account, rows, points, end_cursor=None, extra=()):
+def _tern_case(ws, member, account, rows, points, end_cursor=None, extra=()):
     k_rows = kestrel_rows("KT", 5)
     k_acct = f"K-{member}-S"
     d = Directory({member: [k_acct, account]}, {k_acct: "KESTREL", account: "TERN"})
-    got = run(member, d, StrictKestrel({k_acct: public(k_rows)}),
-              StrictTern({account: list(rows) + list(extra)}, end_cursor=end_cursor))
-    return compare(got, expected(member, [(k_acct, kestrel_lines(k_rows)), (account, tern_lines(rows))]), points)
+    result = statement(ws, member, d, StrictKestrel({k_acct: public(k_rows)}),
+                       StrictTern({account: list(rows) + list(extra)}, end_cursor=end_cursor))
+    return compare(result, expected(member, [(k_acct, kestrel_lines(k_rows)), (account, tern_lines(rows))]), points)
 
 
-def check_tern_included():
-    outside = [
-        {"posting_id": "TX90001", "value_date": "2026-01-31", "amount_minor": 500, "side": "CREDIT", "narrative": "January", "status": "POSTED"},
-        {"posting_id": "TX90002", "value_date": "2026-03-01", "amount_minor": 700, "side": "CREDIT", "narrative": "March", "status": "POSTED"},
-    ]
-    return _tern_case("2003", "T-2003-C", tern_rows("TA", 30), 15, extra=outside)
+def check_tern_included(ws):
+    def posting(ident, date):
+        return {"posting_id": ident, "value_date": date, "amount_minor": 500, "side": "CREDIT",
+                "narrative": "Transfer in", "status": "POSTED"}
+
+    outside_period = [posting("TX90001", "2026-01-31"), posting("TX90002", "2026-03-01")]
+    return _tern_case(ws, "2003", "T-2003-C", tern_rows("TA", 30), 15, extra=outside_period)
 
 
-def check_tern_sign():
-    return _tern_case("2004", "T-2004-S", tern_rows("TB", 14, sides=("CREDIT", "DEBIT", "DEBIT")), 10)
+def check_tern_sign(ws):
+    return _tern_case(ws, "2004", "T-2004-S", tern_rows("TB", 14, sides=("CREDIT", "DEBIT", "DEBIT")), 10)
 
 
-def check_tern_status():
-    return _tern_case("2005", "T-2005-S", tern_rows("TC", 15, statuses=("POSTED", "PENDING", "POSTED", "REJECTED")), 10)
+def check_tern_status(ws):
+    statuses = ("POSTED", "PENDING", "POSTED", "REJECTED")
+    return _tern_case(ws, "2005", "T-2005-S", tern_rows("TC", 15, statuses=statuses), 10)
 
 
-def check_tern_empty_cursor():
-    return _tern_case("2006", "T-2006-C", tern_rows("TD", 30), 5, end_cursor="")
+def check_tern_empty_cursor(ws):
+    return _tern_case(ws, "2006", "T-2006-C", tern_rows("TD", 30), 5, end_cursor="")
 
 
-def check_fail_closed():
-    cases = [("an account in MIGRATING", "MIGRATING", 4), ("an unrecognized home core", "ARCHIVED", 3),
-             ("an account missing from the directory", None, 3)]
-    points, notes = 0, []
-    for label, core, share in cases:
-        bad = "X-2009-S"
-        cores = {"K-2009-S": "KESTREL"}
-        if core:
-            cores[bad] = core
-        d = Directory({"2009": ["K-2009-S", bad]}, cores)
-        rows = kestrel_rows("KH", 4)
-        k = StrictKestrel({"K-2009-S": public(rows), bad: public(kestrel_rows("KX", 3))})
-        t = StrictTern({bad: tern_rows("TX", 3)})
-        try:
-            run("2009", d, k, t)
-        except ExportError as e:
-            read = any(p.get("account_id") == bad for _, p in k.calls + t.calls)
-            named = bad in str(e) or getattr(e, "account_id", None) == bad
-            if named and not read:
-                points += share
-                notes.append(f"{label}: ExportError naming the account")
-            else:
-                points += share / 2
-                notes.append(f"{label}: ExportError, but " + ("the account was read" if read else "the account is not named"))
-        except Exception as e:  # noqa: BLE001
-            points += share / 2
-            notes.append(f"{label}: raises {type(e).__name__}, not ExportError")
-        else:
-            notes.append(f"{label}: a statement was produced")
-    return points, 10, "; ".join(notes)
+def check_fail_closed(ws):
+    good, bad = "K-2009-S", "X-2009-S"
+    rows = kestrel_rows("KH", 4)
+
+    def run(accounts, cores):
+        kestrel = StrictKestrel({good: public(rows), bad: public(kestrel_rows("KX", 3))})
+        tern = StrictTern({bad: tern_rows("TX", 3)})
+        result = statement(ws, "2009", Directory({"2009": accounts}, cores), kestrel, tern)
+        read = any(params.get("account_id") == bad for _, params in kestrel.calls + tern.calls)
+        return result, read
+
+    healthy, _ = run([good], {good: "KESTREL"})
+    if compare(healthy, expected("2009", [(good, kestrel_lines(rows))]), 1)[0] == 0:
+        return 0, "not scored: the member's readable account does not export correctly on its own"
+    scored = []
+    for label, core, share in (("MIGRATING", "MIGRATING", 4), ("unrecognized core", "ARCHIVED", 3),
+                               ("missing from the directory", None, 3)):
+        cores = {good: "KESTREL", **({bad: core} if core else {})}
+        result, read = run([good, bad], cores)
+        scored.append(failure(result, share, label, named=result.names(bad), read=read))
+    return sum(p for p, _ in scored), "; ".join(note for _, note in scored)
 
 
-def check_zero_formatting():
-    rows = [
-        {"id": "KZ00001", "posted": f"{PERIOD}-03", "description": "Card purchase", "amount": "-0.10", "_cents": -10},
-        {"id": "KZ00002", "posted": f"{PERIOD}-04", "description": "Card purchase", "amount": "-0.20", "_cents": -20},
-        {"id": "KZ00003", "posted": f"{PERIOD}-05", "description": "Transfer in", "amount": "0.30", "_cents": 30},
-    ]
+def check_zero_formatting(ws):
+    lines = [("Card purchase", -10), ("Card purchase", -20), ("Transfer in", 30)]
+    rows = [{"id": f"KZ0000{n}", "posted": f"{PERIOD}-0{n + 2}", "description": text,
+             "amount": money(cents), "_cents": cents}
+            for n, (text, cents) in enumerate(lines, 1)]
     d = Directory({"2007": ["K-2007-S"]}, {"K-2007-S": "KESTREL"})
-    got = run("2007", d, StrictKestrel({"K-2007-S": public(rows)}))
-    if "-0.00" in got:
-        return 0, 3, "a zero amount is written -0.00"
-    return compare(got, expected("2007", [("K-2007-S", kestrel_lines(rows))]), 3)
+    result = statement(ws, "2007", d, StrictKestrel({"K-2007-S": public(rows)}))
+    if result.text and "-0.00" in result.text:
+        return 0, "a zero amount is written -0.00"
+    return compare(result, expected("2007", [("K-2007-S", kestrel_lines(rows))]), 3)
 
 
+# name: (maximum points, what it shows, function)
 CHECKS = {
-    "regression": ("Existing format unchanged for a legacy-only member", check_regression),
-    "kestrel_paging": ("Complete read of a 165-row account against production paging", check_kestrel_paging),
-    "holds_twin": ("The same paging fault fixed in the holds report, which the ticket does not mention", check_holds_twin),
-    "no_silent_partial": ("A dead core or a short list fails the export instead of shortening it", check_no_silent_partial),
-    "tern_included": ("Tern accounts included, period bounds respected", check_tern_included),
-    "tern_sign": ("Tern DEBIT and CREDIT shown from the member's point of view", check_tern_sign),
-    "tern_status": ("PENDING and REJECTED postings left off", check_tern_status),
-    "tern_empty_cursor": ("Empty-string cursor ends the list", check_tern_empty_cursor),
-    "fail_closed": ("Unreadable accounts fail the member's export and are never read", check_fail_closed),
-    "zero_formatting": ("Zero is written 0.00", check_zero_formatting),
+    "kestrel_paging": (15, "Complete read of a 165-row account against production paging", check_kestrel_paging),
+    "tern_included": (15, "Tern accounts included, period bounds respected", check_tern_included),
+    "holds_twin": (10, "The same paging fault fixed in the holds report", check_holds_twin),
+    "no_silent_partial": (10, "A dead core or a short list fails the export instead of shortening it",
+                          check_no_silent_partial),
+    "tern_sign": (10, "Tern DEBIT and CREDIT shown from the member's point of view", check_tern_sign),
+    "tern_status": (10, "PENDING and REJECTED postings left off", check_tern_status),
+    "fail_closed": (10, "Accounts in migration, unknown or missing fail the export and are never read",
+                    check_fail_closed),
+    "regression": (10, "Existing format unchanged for a legacy-only member", check_regression),
+    "tern_empty_cursor": (5, "Empty-string cursor ends the list", check_tern_empty_cursor),
+    "zero_formatting": (3, "Zero is written 0.00", check_zero_formatting),
 }

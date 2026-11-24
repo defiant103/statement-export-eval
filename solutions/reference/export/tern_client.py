@@ -2,7 +2,7 @@
 import calendar
 
 from .errors import ExportError, TransportError
-from .kestrel_client import Transaction
+from .records import Transaction
 
 MAX_PAGES = 10_000
 
@@ -58,5 +58,6 @@ class TernClient:
                 transactions.append(Transaction(id=posting["posting_id"], date=posting["value_date"],
                                                 description=posting["narrative"], cents=cents))
             except (KeyError, ValueError) as e:
-                raise ExportError(f"Tern returned a posting the export cannot read for account {account_id}: {e}", account_id) from e
+                raise ExportError(f"Tern returned an unreadable posting for account {account_id}: {e}",
+                                  account_id) from e
         return transactions

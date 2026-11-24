@@ -1,16 +1,16 @@
 """Amounts are integer cents everywhere inside the export."""
-from decimal import Decimal, InvalidOperation
+import re
+
+_AMOUNT = re.compile(r"(-?)(\d+)\.(\d\d)")
 
 
 def parse_decimal_cents(text):
-    """'-12.34' -> -1234. Raises ValueError unless the text is a whole number of cents."""
-    try:
-        cents = Decimal(text) * 100
-    except (InvalidOperation, TypeError) as e:
-        raise ValueError(f"not an amount: {text!r}") from e
-    if cents != cents.to_integral_value():
-        raise ValueError(f"not a whole number of cents: {text!r}")
-    return int(cents)
+    """'-12.34' -> -1234. Raises ValueError for anything but digits, a point and two decimals."""
+    match = _AMOUNT.fullmatch(text) if isinstance(text, str) else None
+    if not match:
+        raise ValueError(f"not an amount: {text!r}")
+    sign, units, cents = match.groups()
+    return (-1 if sign else 1) * (int(units) * 100 + int(cents))
 
 
 def format_cents(cents):

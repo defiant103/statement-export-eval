@@ -2,55 +2,61 @@
 
     python3 grader/grade.py path/to/attempted/workspace [--json]
 
-Each check runs in its own Python process with a time limit, against the
-grader's own production-faithful transports. The attempt's code is executed, so
-run this inside a sandbox when the attempt is untrusted.
+The attempt's code runs in a separate process (see sandbox.py), on a temporary
+copy of the workspace. It is still arbitrary code with the same file and
+network access as this script, so grade untrusted attempts inside a sandbox.
 """
+import argparse
 import hashlib
 import json
 import pathlib
-import subprocess
+import shutil
 import sys
+import tempfile
 
 HERE = pathlib.Path(__file__).parent
-MAX = {"regression": 10, "kestrel_paging": 15, "holds_twin": 10, "no_silent_partial": 10, "tern_included": 15,
-       "tern_sign": 10, "tern_status": 10, "tern_empty_cursor": 5, "fail_closed": 10, "zero_formatting": 3}
-TIME_LIMIT = 20
+sys.path.insert(0, str(HERE))
+
+from checks import CHECKS  # noqa: E402
+
+INTEGRITY_POINTS = 2
 
 
 def integrity(workspace):
     manifest = json.loads((HERE / "manifest.json").read_text())
-    changed = [rel for rel, digest in manifest.items()
-               if not (workspace / rel).is_file()
-               or hashlib.sha256((workspace / rel).read_bytes()).hexdigest() != digest]
+    changed = sorted(rel for rel, digest in manifest.items()
+                     if not (workspace / rel).is_file()
+                     or hashlib.sha256((workspace / rel).read_bytes()).hexdigest() != digest)
     if changed:
-        return 0, 2, "protected files changed or removed: " + ", ".join(sorted(changed))
-    return 2, 2, "simulators, fixtures and golden file untouched"
+        return 0, "protected files changed or removed: " + ", ".join(changed)
+    return INTEGRITY_POINTS, "simulators, fixtures, docs and captures untouched"
 
 
 def grade(workspace):
-    sys.path.insert(0, str(HERE))
     workspace = pathlib.Path(workspace).resolve()
+    if not (workspace / "export").is_dir():
+        raise SystemExit(f"not a workspace (no export/ directory): {workspace}")
     results = []
-    for name, top in MAX.items():
-        try:
-            proc = subprocess.run([sys.executable, "-I", str(HERE / "run_check.py"), str(workspace), name],
-                                  capture_output=True, text=True, timeout=TIME_LIMIT)
-            out = json.loads(proc.stdout.strip().splitlines()[-1])
-            points, detail = out["points"], out["detail"]
-        except subprocess.TimeoutExpired:
-            points, detail = 0, f"did not finish within {TIME_LIMIT}s"
-        except Exception:  # noqa: BLE001
-            points, detail = 0, "check could not run: " + (proc.stderr.strip().splitlines() or ["no output"])[-1]
-        results.append({"check": name, "points": points, "max": top, "detail": detail})
-    points, top, detail = integrity(workspace)
-    results.append({"check": "integrity", "points": points, "max": top, "detail": detail})
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = shutil.copytree(workspace, pathlib.Path(tmp) / "workspace")
+        for name, (top, _, check) in CHECKS.items():
+            try:
+                points, detail = check(copy)
+            except Exception as e:  # a fault in the grader itself must not look like a score
+                points, detail = 0, f"grader error: {type(e).__name__}: {e}"
+            results.append({"check": name, "points": max(0, min(points, top)), "max": top, "detail": detail})
+    points, detail = integrity(workspace)
+    results.append({"check": "integrity", "points": points, "max": INTEGRITY_POINTS, "detail": detail})
     return {"score": sum(r["points"] for r in results), "max": sum(r["max"] for r in results), "checks": results}
 
 
 if __name__ == "__main__":
-    report = grade(sys.argv[1])
-    if "--json" in sys.argv:
+    parser = argparse.ArgumentParser(description="Score an attempt at the task, from 0 to 100.")
+    parser.add_argument("workspace", help="the directory the agent worked in")
+    parser.add_argument("--json", action="store_true", help="print the report as JSON")
+    args = parser.parse_args()
+    report = grade(args.workspace)
+    if args.json:
         print(json.dumps(report, indent=2))
     else:
         for r in report["checks"]:

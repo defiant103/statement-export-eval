@@ -12,7 +12,8 @@ sys.path.insert(0, str(ROOT / "workspace"))
 
 from export.errors import TransportError  # noqa: E402
 from export.kestrel_client import KestrelClient  # noqa: E402
-from strict_sims import StrictKestrel, StrictTern  # noqa: E402
+from checks import money  # noqa: E402
+from strict_sims import Fault, StrictKestrel, StrictTern  # noqa: E402
 
 LOGS = ROOT / "workspace" / "logs"
 LOGS.mkdir(exist_ok=True)
@@ -27,9 +28,9 @@ class Recorder:
         try:
             entry["response"] = self.inner.call(op, params)
             return entry["response"]
-        except TransportError as e:
-            entry["fault"] = {"status": e.status, "body": e.body}
-            raise
+        except Fault as fault:
+            entry["fault"] = {"status": fault.status, "body": fault.body}
+            raise TransportError(fault.status, fault.body) from fault
         finally:
             self.lines.append(entry)
 
@@ -50,7 +51,7 @@ for i in range(165):
     if word not in ("Payroll deposit", "Transfer in"):
         cents = -cents
     rows.append({"id": f"KQ{i:05d}", "posted": f"2026-02-{(i * 28 // 165) + 1:02d}", "description": word,
-                 "amount": f"{'-' if cents < 0 else ''}{abs(cents) // 100}.{abs(cents) % 100:02d}"})
+                 "amount": money(cents)})
 rec = Recorder(StrictKestrel({"K-10482-C": rows}), "kestrel")
 got = KestrelClient(rec).list_transactions("K-10482-C", "2026-02")
 assert len(got) == 75, len(got)
@@ -74,5 +75,6 @@ for _ in range(5):
     if reply["cursor"] is None:
         break
     params["cursor"] = reply["cursor"]
-rec.write("prod-tern-smoke-2026-02-20.jsonl", note="capture ends here: the script did not finish and was stopped by hand")
+rec.write("prod-tern-smoke-2026-02-20.jsonl",
+          note="capture ends here: the script did not finish and was stopped by hand")
 print("captures written")

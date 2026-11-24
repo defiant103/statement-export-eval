@@ -29,7 +29,8 @@ class TernSim:
         page = rows[start:start + PAGE_SIZE]
         end = start + len(page)
         return {
-            "postings": [dict(r, status="POSTED", balance_after_minor=self._balance_after(account_id, r)) for r in page],
+            "postings": [dict(r, status="POSTED", balance_after_minor=self._balance_after(account_id, r))
+                         for r in page],
             "cursor": str(end) if end < len(rows) else None,
         }
 

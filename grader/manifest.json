@@ -8,6 +8,6 @@
   "sim/__init__.py": "da8b9d0bc6b669b31aad181d2f37ac423bc82e33edf16c12fe2295bec733d401",
   "sim/fixtures.py": "d57b3aca98dbac69cd4ba13e148daa2118336b750bb83d0123160b9eb3d7488b",
   "sim/kestrel_sim.py": "fb8c52f1e7023ed140a7b99352477d57ca710ccb276c9b39745f7e303f70053f",
-  "sim/tern_sim.py": "99e3ca1fdd98cab80e62e27ccfa0c661abfccc3eb9735fb63b172d341ff8d26d",
+  "sim/tern_sim.py": "38b972239a5f3bc15f13cb3349d98af42fa9151c6e83a10ff03b0e81ee11589b",
   "tests/golden/member_1001_2026-02.csv": "a246e89097a716e0d665b884740acce62da9ad52577d6f3a96d58cb1c50df91a"
 }
