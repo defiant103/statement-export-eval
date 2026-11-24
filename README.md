@@ -46,13 +46,21 @@ Two checks give half credit: an export that fails with the wrong exception type 
 | Naive fix (`solutions/naive`): adds the new core, stops when the tests pass | pass | 28.5 |
 | Reference fix (`solutions/reference`) | pass | 100 |
 
-Three models then attempted the task once each, from the prompt and a fresh copy of the workspace, at the same effort setting:
+Three models then attempted the task from the prompt and a fresh copy of the workspace, once at each of three effort settings:
 
-| Model | Score | What it missed |
-| --- | --- | --- |
-| Claude Haiku | 87 | Found the twin of the paging fault in the holds report and recommended a separate ticket instead of fixing it; wrote zero as `-0.00` |
-| Claude Sonnet | 100 | Nothing |
-| Claude Opus | 100 | Nothing |
+| Model | Low | Medium | High |
+| --- | --- | --- | --- |
+| Claude Haiku | 65 | 87 | 100 |
+| Claude Sonnet | 97 | 100 | 100 |
+| Claude Opus | 100 | 100 | 100 |
+
+Where the points went:
+
+- **Haiku, low effort (65).** It read the capture as a fault partway through the list. The capture has no fault in it, only pages that skip ahead. The real cause stayed in place, behind a new completeness check that now fails the export loudly. It also found the twin in the holds report and left it for a separate ticket.
+- **Haiku, medium effort (87).** It found the paging cause, left the holds report for a separate ticket, and wrote zero as `-0.00`.
+- **Sonnet, low effort (97).** It wrote zero as `-0.00`.
+
+The medium runs came first. The low and high runs were made after the capture fix and the grader rewrite described below.
 
 What the attempts changed:
 
@@ -60,7 +68,7 @@ What the attempts changed:
 - **They found two faults in the grader.** One check assumed a page size of 25 and failed a correct attempt that used 100. Another failed an attempt that correctly retried a transient fault. Both checks were rewritten to test the behavior and not one way of implementing it.
 - **One found a flaw in the data.** The Opus attempt noted that a capture labeled a card purchase as a credit. The narratives were corrected after the runs; nothing the grader scores depended on them.
 
-A code review afterwards found that an attempt could forge its own score, by shipping a file named like one of the grader's modules or by printing a fake result line, and that an attempt which refused every export outscored the untouched repository. The attempt's code now runs in a process of its own, and the two failure checks are gated as described above. The three model scores were unchanged by the rewrite.
+A code review afterwards found that an attempt could forge its own score, by shipping a file named like one of the grader's modules or by printing a fake result line, and that an attempt which refused every export outscored the untouched repository. The attempt's code now runs in a process of its own, and the two failure checks are gated as described above. The three medium-effort scores were unchanged by the rewrite.
 
 ## Running it
 
@@ -85,11 +93,11 @@ To run an attempt, give an agent a fresh copy of `workspace/` and the text of `T
 
 ## Limitations
 
-- **It does not yet separate strong models.** See the attempts above. It shows the method on a small scale; a task that taxes current frontier models would need a larger codebase and a longer chain of dependent decisions.
+- **It separates the low end, not the top.** Scores rise with effort for the smallest model, and the largest scores 100 at every setting. It shows the method on a small scale; a task that taxes current frontier models would need a larger codebase and a longer chain of dependent decisions.
 - **Process separation is not a sandbox.** The attempt's process has the same file and network access as the grader. Run untrusted attempts in a container that cannot read `grader/`.
 - It is one task. It says something about care with evidence and failure handling, and nothing about scale, performance or user-facing work.
 - The grader checks behavior, not the quality of the code or of the agent's closing summary. The prompt asks for a note on what could not be verified; scoring that note would take a rubric and a human or model judge.
-- Each model was run once. One run per model is an anecdote, not a measurement.
+- Each cell in the table is one run. Nine runs show a pattern, not a measurement.
 - The holds check scores a judgment call. An agent that reports the twin and recommends a separate ticket has made a defensible choice and still loses those points.
 
 ## Where it comes from
