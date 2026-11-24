@@ -1,0 +1,12 @@
+member,1001,period,2026-02
+account,date,id,description,amount
+K-1001-S,2026-02-01,KA00000,Card purchase,-3.50
+K-1001-S,2026-02-02,KA00001,Payroll deposit,4.87
+K-1001-S,2026-02-03,KA00002,ATM withdrawal,-6.24
+K-1001-S,2026-02-04,KA00003,Transfer in,7.61
+K-1001-S,2026-02-05,KA00004,"Bill payment, utilities",-8.98
+K-1001-S,2026-02-06,KA00005,Card purchase,-10.35
+K-1001-S,2026-02-07,KA00006,Payroll deposit,11.72
+K-1001-S,2026-02-08,KA00007,ATM withdrawal,-13.09
+subtotal,K-1001-S,,,-17.96
+total,,,,-17.96

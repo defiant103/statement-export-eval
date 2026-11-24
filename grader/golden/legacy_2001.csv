@@ -1,0 +1,16 @@
+member,2001,period,2026-02
+account,date,id,description,amount
+K-2001-S,2026-02-01,KR00000,Card purchase,-5.25
+K-2001-S,2026-02-01,KR00004,ATM withdrawal,-13.69
+K-2001-S,2026-02-01,KR00008,"Bill payment, utilities",-22.13
+K-2001-S,2026-02-08,KR00001,Check 2041,-7.36
+K-2001-S,2026-02-08,KR00005,Payroll deposit,15.80
+K-2001-S,2026-02-08,KR00009,Transfer in,24.24
+K-2001-S,2026-02-15,KR00002,"Bill payment, utilities",-9.47
+K-2001-S,2026-02-15,KR00006,Card purchase,-17.91
+K-2001-S,2026-02-15,KR00010,ATM withdrawal,-26.35
+K-2001-S,2026-02-22,KR00003,Transfer in,11.58
+K-2001-S,2026-02-22,KR00007,Check 2041,-20.02
+K-2001-S,2026-02-22,KR00011,Payroll deposit,28.46
+subtotal,K-2001-S,,,-42.10
+total,,,,-42.10
