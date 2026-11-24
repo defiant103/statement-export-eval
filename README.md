@@ -4,6 +4,8 @@ One hand-built evaluation task for AI coding agents: a prompt, a small repositor
 
 The task asks an agent to fix a month-end statement export for a credit union whose accounts are split across a legacy core and a new one. The repository's tests pass for a fix that is wrong in production. The grader measures whether the agent worked out what production actually does, from captured traffic, and built for that.
 
+It is small on purpose: a worked example of building one task carefully, with the validation and the mistakes left in view.
+
 ## The task
 
 The agent receives [`TASK.md`](TASK.md) as its prompt and the contents of [`workspace/`](workspace/) as its repository. It never sees `grader/` or `solutions/`.
@@ -93,12 +95,20 @@ To run an attempt, give an agent a fresh copy of `workspace/` and the text of `T
 
 ## Limitations
 
-- **It separates the low end, not the top.** Scores rise with effort for the smallest model, and the largest scores 100 at every setting. It shows the method on a small scale; a task that taxes current frontier models would need a larger codebase and a longer chain of dependent decisions.
+- **It separates the low end, not the top.** Scores rise with effort for the smallest model, and the largest scores 100 at every setting.
 - **Process separation is not a sandbox.** The attempt's process has the same file and network access as the grader. Run untrusted attempts in a container that cannot read `grader/`.
 - It is one task. It says something about care with evidence and failure handling, and nothing about scale, performance or user-facing work.
 - The grader checks behavior, not the quality of the code or of the agent's closing summary. The prompt asks for a note on what could not be verified; scoring that note would take a rubric and a human or model judge.
 - Each cell in the table is one run. Nine runs show a pattern, not a measurement.
 - The holds check scores a judgment call. An agent that reports the twin and recommends a separate ticket has made a defensible choice and still loses those points.
+
+## What a larger version would need
+
+- **A longer task.** A whole service to build, not a fix, so that an attempt takes hours and early choices constrain later ones.
+- **Difficulty tuned against the strongest model,** by the same loop used here: run attempts, read where they fail, check the grader is not at fault, then harden.
+- **Repeated runs per model and setting,** so that a score is a distribution and not a single result.
+- **A scored closing note.** A rubric, applied by a person or a model, for whether the agent said what it could not verify.
+- **More than one task,** each drawn from a different kind of real failure.
 
 ## Where it comes from
 
