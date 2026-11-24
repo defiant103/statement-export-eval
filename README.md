@@ -112,6 +112,10 @@ To run an attempt, give an agent a fresh copy of `workspace/` and the text of `T
 
 ## Where it comes from
 
-The traps are generalized from failures seen in real work with coding agents on banking software, where code that passed against a simulator went on to fail against the real system. The institution, both cores, their APIs and all data here are invented for this task.
+The traps are generalized from failures seen in real work with coding agents on banking software, where code that passed against a simulator went on to fail against the real system.
+
+The central fault is a real one. A program asked a live system for a list of 165 records, got 75 back, and reported that it had them all. No error was raised, and the test system it had been checked against returned every record, so nothing gave the gap away. This task checks whether an agent handed the same evidence finds the cause, or settles for tests that pass.
+
+The institution, both cores, their APIs and all data here are invented for this task.
 
 Built with an AI coding agent (Claude Code).
