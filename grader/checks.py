@@ -159,15 +159,23 @@ _SAME_FAULT = r"same (paging|pagination|cursor|token|skip|bug|fault|defect|probl
               r"(shares?|has|have|also has|also have|affected by) the same|identical (paging|pagination|bug|fault)|" \
               r"(paging|pagination|cursor|skip)\W+(bug|fault|defect|problem|issue)\W+(also|too|as well)"
 _REASON = r"separate (ticket|issue|change|pr|pull request|story|work)|follow[- ]?up|out of scope|outside (the )?scope|" \
-          r"not (in|part of) (this|the) (ticket|scope|change)|another team|other team|owned by|owner|" \
+          r"not (in|part of) (this|the) (ticket|scope|change)|another team|other team|owned by|" \
           r"change[- ]control|change[- ]management|change window|needs? (its own|a) (ticket|review|approval)|" \
           r"left (it )?(for|to) (a |the )?(later|another|separate|different)"
 
 
 def note_facts(note):
-    """(names the holds report, says it has the same fault, gives a reason) for the closing note."""
+    """(names the holds report, says it has the same fault, gives a reason), all three in one paragraph or bullet of
+    the closing note, so a reason given for something else does not count."""
     import re
-    return tuple(bool(re.search(p, note or "", re.I)) for p in (_NAMES, _SAME_FAULT, _REASON))
+    best = (False, False, False)
+    for part in re.split(r"\n\s*\n|\n\s*(?:[-*\u2022]|\d+[.)])\s+", note or ""):
+        facts = tuple(bool(re.search(p, part, re.I)) for p in (_NAMES, _SAME_FAULT, _REASON))
+        if all(facts):
+            return facts
+        if facts[0] and sum(facts) > sum(best):
+            best = facts
+    return best if best[0] else tuple(bool(re.search(p, note or "", re.I)) for p in (_NAMES, _SAME_FAULT, _REASON))
 
 
 def check_holds_twin(ws):
