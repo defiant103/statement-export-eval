@@ -28,7 +28,7 @@ The ticket reports two problems. Accounts on the new core are missing from state
 | --- | --- | --- |
 | Complete read of a 165-row account against production paging | 15 | Found the cause of the short export |
 | Tern accounts included, period bounds respected | 15 | Built the new integration |
-| The same paging fault fixed in the holds report | 10 | Fixed the cause, not only the reported symptom |
+| The same paging fault fixed in the holds report (5 if left alone, but the closing note names the report, says it has the same fault and gives a reason for leaving it) | 10 | Fixed the cause, not only the reported symptom |
 | A dead core or a short list fails the export instead of shortening it | 10 | No silent partial statements |
 | Tern DEBIT and CREDIT shown from the member's point of view | 10 | Inferred the sign convention from the captured balances |
 | PENDING and REJECTED postings left off | 10 | Noticed what production returns that the simulator does not |
@@ -42,7 +42,7 @@ Two checks give half credit: an export that fails with the wrong exception type 
 
 ## Validation
 
-`python3 validate.py` builds and grades three versions of the workspace, and fails if any of them does not come out as below:
+`python3 validate.py` builds and grades three versions of the workspace, and fails if any of them does not come out as below. It also grades the reference with the holds report left alone: a note naming it, its fault and a separate ticket must score 5 on the holds check; a note naming it with no reason, no mention and no note must score 0; the holds report fixed scores 10 with or without a note:
 
 | Version | Visible tests | Score |
 | --- | --- | --- |
@@ -104,8 +104,8 @@ To run an attempt, give an agent a fresh copy of `workspace/` and the text of `T
 - **The sandbox depends on the platform.** Without `sandbox-exec`, or where `bwrap` cannot create namespaces (common inside a container), grading runs with process separation only and the report says `sandbox: off`. Run untrusted attempts in a container that cannot read `grader/` in that case. On macOS, even with the sandbox on, the attempt can see which paths exist, though not read them.
 - It is one task. It says something about care with evidence and failure handling, and nothing about scale, performance or user-facing work.
 - The grader checks behavior, not the quality of the code or of the agent's closing summary. The prompt asks for a note on what could not be verified; scoring that note would take a rubric and a human or model judge.
-- Each cell in the table is one run. Nine runs show a pattern, not a measurement.
-- The holds check scores a judgment call. An agent that reports the twin and recommends a separate ticket has made a defensible choice and still loses those points.
+- Each cell in the table is one run, scored before the holds partial credit existed; the closing notes of the Haiku runs were not kept, so their scores were not re-checked. Nine runs show a pattern, not a measurement.
+- The holds twin is in the same client class, so a fix to the client's paging covers it. An agent that leaves it, reports it with the same fault and gives a reason for deferring (for example change control) gets half credit. An agent that leaves it without saying why gets none, and so does one that does not mention it. The note is checked by keyword patterns for those three facts (listed in `grader/checks.py`), not read for quality; pass it with `--note FILE` or leave it as `closing_note.txt` in the workspace root, and with no note there is no partial credit.
 
 ## What a larger version would need
 

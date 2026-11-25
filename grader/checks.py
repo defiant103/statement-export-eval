@@ -131,17 +131,62 @@ def check_kestrel_paging(ws):
     return compare(result, expected("2002", [("K-2002-C", kestrel_lines(rows))]), 15)
 
 
-def check_holds_twin(ws):
-    holds = [{"id": f"KH{i:05d}", "placed": f"{PERIOD}-{(i * 3 % 28) + 1:02d}",
-              "reason": "Check deposit hold" if i % 2 else "Card authorization", "amount": money(2500 + i * 125)}
-             for i in range(80)]
+def holds_rows():
+    return [{"id": f"KH{i:05d}", "placed": f"{PERIOD}-{(i * 3 % 28) + 1:02d}",
+             "reason": "Check deposit hold" if i % 2 else "Card authorization", "amount": money(2500 + i * 125)}
+            for i in range(80)]
+
+
+def holds_result(ws):
     d = Directory({"2010": ["K-2010-C"]}, {"K-2010-C": "KESTREL"})
-    kestrel = StrictKestrel({"K-2010-C": []}, holds={"K-2010-C": holds})
-    result = invoke(ws, "holds", "2010", directory=d, kestrel=kestrel)
-    want = to_csv([["account", "placed", "id", "reason", "amount"]]
+    kestrel = StrictKestrel({"K-2010-C": []}, holds={"K-2010-C": holds_rows()})
+    return invoke(ws, "holds", "2010", directory=d, kestrel=kestrel)
+
+
+def holds_want():
+    return to_csv([["account", "placed", "id", "reason", "amount"]]
                   + [["K-2010-C", h["placed"], h["id"], h["reason"], h["amount"]]
-                     for h in sorted(holds, key=lambda h: (h["placed"], h["id"]))])
-    return compare(result, want, 10)
+                     for h in sorted(holds_rows(), key=lambda h: (h["placed"], h["id"]))])
+
+
+# The agent's closing note, set by grade.py before any attempt code runs (None when there is no note).
+NOTE = None
+
+# Partial credit for a holds report left alone is a mechanical fact check on the note: it must (a) name the holds
+# report, (b) say it has the same paging fault, and (c) give a reason for leaving it. Case-insensitive patterns.
+_NAMES = r"holds? (report|list)|holds_report|list_holds|holds twin|\bthe twin\b"
+_SAME_FAULT = r"same (paging|pagination|cursor|token|skip|bug|fault|defect|problem|issue|loop)|" \
+              r"(shares?|has|have|also has|also have|affected by) the same|identical (paging|pagination|bug|fault)|" \
+              r"(paging|pagination|cursor|skip)\W+(bug|fault|defect|problem|issue)\W+(also|too|as well)"
+_REASON = r"separate (ticket|issue|change|pr|pull request|story|work)|follow[- ]?up|out of scope|outside (the )?scope|" \
+          r"not (in|part of) (this|the) (ticket|scope|change)|another team|other team|owned by|owner|" \
+          r"change[- ]control|change[- ]management|change window|needs? (its own|a) (ticket|review|approval)|" \
+          r"left (it )?(for|to) (a |the )?(later|another|separate|different)"
+
+
+def note_facts(note):
+    """(names the holds report, says it has the same fault, gives a reason) for the closing note."""
+    import re
+    return tuple(bool(re.search(p, note or "", re.I)) for p in (_NAMES, _SAME_FAULT, _REASON))
+
+
+def check_holds_twin(ws):
+    result = holds_result(ws)
+    points, detail = compare(result, holds_want(), 10)
+    if points:
+        return points, detail
+    # Not fixed. Half credit only if the report still gives its delivered output (it was left, not broken) and
+    # the closing note names it, says it has the same fault and gives a reason for leaving it.
+    if result.error is not None or result.text != (GOLDEN / "holds_delivered_2010.csv").read_text():
+        return 0, detail + "; and the report no longer gives its delivered output, so no partial credit"
+    named, same, reason = note_facts(NOTE)
+    if NOTE is None:
+        return 0, detail + "; no closing note given"
+    if named and same and reason:
+        return 5, "not fixed, but the closing note names the holds report, its same fault and a reason for leaving it"
+    missing = [n for n, ok in (("names the holds report", named), ("says it has the same fault", same),
+                               ("gives a reason for leaving it", reason)) if not ok]
+    return 0, detail + "; closing note does not do all three (missing: " + ", ".join(missing) + ")"
 
 
 def check_no_silent_partial(ws):

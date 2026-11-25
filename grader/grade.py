@@ -1,6 +1,6 @@
 """Score an attempt at the task.
 
-    python3 grader/grade.py path/to/attempted/workspace [--json]
+    python3 grader/grade.py path/to/attempted/workspace [--note closing_note.txt] [--json]
 
 The attempt's code runs in a separate process inside an operating-system
 sandbox (see sandbox.py), on a temporary copy of the workspace. The report's
@@ -18,6 +18,7 @@ import tempfile
 HERE = pathlib.Path(__file__).parent
 sys.path.insert(0, str(HERE))
 
+import checks  # noqa: E402
 from checks import CHECKS  # noqa: E402
 from sandbox import sandbox_status  # noqa: E402
 
@@ -34,10 +35,20 @@ def integrity(workspace):
     return INTEGRITY_POINTS, "simulators, fixtures, docs and captures untouched"
 
 
-def grade(workspace):
+def read_note(workspace, note_file=None):
+    """The closing note: the --note file, else closing_note.txt in the workspace root, else None."""
+    path = pathlib.Path(note_file) if note_file else pathlib.Path(workspace) / "closing_note.txt"
+    try:
+        return path.read_text(errors="replace") if path.is_file() else None
+    except OSError:
+        return None
+
+
+def grade(workspace, note_file=None):
     workspace = pathlib.Path(workspace).resolve()
     if not (workspace / "export").is_dir():
         raise SystemExit(f"not a workspace (no export/ directory): {workspace}")
+    checks.NOTE = read_note(workspace, note_file)  # read before any attempt code runs
     results = []
     with tempfile.TemporaryDirectory() as tmp:
         copy = shutil.copytree(workspace, pathlib.Path(tmp) / "workspace", symlinks=True)
@@ -57,8 +68,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Score an attempt at the task, from 0 to 100.")
     parser.add_argument("workspace", help="the directory the agent worked in")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
+    parser.add_argument("--note", help="file holding the agent's closing note (default: closing_note.txt in the workspace)")
     args = parser.parse_args()
-    report = grade(args.workspace)
+    report = grade(args.workspace, args.note)
     if args.json:
         print(json.dumps(report, indent=2))
     else:

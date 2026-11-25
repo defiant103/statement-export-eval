@@ -1,0 +1,51 @@
+account,placed,id,reason,amount
+K-2010-C,2026-02-01,KH00000,Card authorization,25.00
+K-2010-C,2026-02-01,KH00056,Card authorization,95.00
+K-2010-C,2026-02-02,KH00019,Check deposit hold,48.75
+K-2010-C,2026-02-03,KH00010,Card authorization,37.50
+K-2010-C,2026-02-03,KH00066,Card authorization,107.50
+K-2010-C,2026-02-04,KH00001,Check deposit hold,26.25
+K-2010-C,2026-02-04,KH00057,Check deposit hold,96.25
+K-2010-C,2026-02-05,KH00020,Card authorization,50.00
+K-2010-C,2026-02-06,KH00011,Check deposit hold,38.75
+K-2010-C,2026-02-06,KH00067,Check deposit hold,108.75
+K-2010-C,2026-02-07,KH00002,Card authorization,27.50
+K-2010-C,2026-02-07,KH00058,Card authorization,97.50
+K-2010-C,2026-02-08,KH00021,Check deposit hold,51.25
+K-2010-C,2026-02-09,KH00012,Card authorization,40.00
+K-2010-C,2026-02-09,KH00068,Card authorization,110.00
+K-2010-C,2026-02-10,KH00003,Check deposit hold,28.75
+K-2010-C,2026-02-10,KH00059,Check deposit hold,98.75
+K-2010-C,2026-02-11,KH00022,Card authorization,52.50
+K-2010-C,2026-02-11,KH00050,Card authorization,87.50
+K-2010-C,2026-02-12,KH00013,Check deposit hold,41.25
+K-2010-C,2026-02-12,KH00069,Check deposit hold,111.25
+K-2010-C,2026-02-13,KH00004,Card authorization,30.00
+K-2010-C,2026-02-13,KH00060,Card authorization,100.00
+K-2010-C,2026-02-14,KH00023,Check deposit hold,53.75
+K-2010-C,2026-02-14,KH00051,Check deposit hold,88.75
+K-2010-C,2026-02-15,KH00014,Card authorization,42.50
+K-2010-C,2026-02-15,KH00070,Card authorization,112.50
+K-2010-C,2026-02-16,KH00005,Check deposit hold,31.25
+K-2010-C,2026-02-16,KH00061,Check deposit hold,101.25
+K-2010-C,2026-02-17,KH00024,Card authorization,55.00
+K-2010-C,2026-02-17,KH00052,Card authorization,90.00
+K-2010-C,2026-02-18,KH00015,Check deposit hold,43.75
+K-2010-C,2026-02-18,KH00071,Check deposit hold,113.75
+K-2010-C,2026-02-19,KH00006,Card authorization,32.50
+K-2010-C,2026-02-19,KH00062,Card authorization,102.50
+K-2010-C,2026-02-20,KH00053,Check deposit hold,91.25
+K-2010-C,2026-02-21,KH00016,Card authorization,45.00
+K-2010-C,2026-02-21,KH00072,Card authorization,115.00
+K-2010-C,2026-02-22,KH00007,Check deposit hold,33.75
+K-2010-C,2026-02-22,KH00063,Check deposit hold,103.75
+K-2010-C,2026-02-23,KH00054,Card authorization,92.50
+K-2010-C,2026-02-24,KH00017,Check deposit hold,46.25
+K-2010-C,2026-02-24,KH00073,Check deposit hold,116.25
+K-2010-C,2026-02-25,KH00008,Card authorization,35.00
+K-2010-C,2026-02-25,KH00064,Card authorization,105.00
+K-2010-C,2026-02-26,KH00055,Check deposit hold,93.75
+K-2010-C,2026-02-27,KH00018,Card authorization,47.50
+K-2010-C,2026-02-27,KH00074,Card authorization,117.50
+K-2010-C,2026-02-28,KH00009,Check deposit hold,36.25
+K-2010-C,2026-02-28,KH00065,Check deposit hold,106.25
