@@ -1,8 +1,8 @@
-"""Developer simulator for the Kestrel core. Shared with other teams: do not modify."""
+"""Developer simulator for the Jedha core. Shared with other teams: do not modify."""
 from export.errors import TransportError
 
 
-class KestrelSim:
+class JedhaSim:
     def __init__(self, accounts, holds=None):
         self._accounts = accounts    # account_id -> [ {id, posted, description, amount}, ... ]
         self._holds = holds or {}    # account_id -> [ {id, placed, reason, amount}, ... ]

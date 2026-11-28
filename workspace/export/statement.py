@@ -6,14 +6,14 @@ format below must not change.
 import csv
 import io
 
-from .kestrel_client import KestrelClient
+from .jedha_client import JedhaClient
 
 
-def build_statement(member_id, period, *, directory, kestrel, tern=None):
+def build_statement(member_id, period, *, directory, jedha, scarif=None):
     """Return the statement for `member_id` and `period` ("YYYY-MM") as CSV text.
 
     `directory` answers accounts_for(member_id) and home_core(account_id).
-    `kestrel` and `tern` are transports: objects with call(op, params) -> dict
+    `jedha` and `scarif` are transports: objects with call(op, params) -> dict
     that raise TransportError on a fault.
     """
     out = io.StringIO()
@@ -24,10 +24,10 @@ def build_statement(member_id, period, *, directory, kestrel, tern=None):
     total = 0.0
     for account_id in directory.accounts_for(member_id):
         core = directory.home_core(account_id)
-        if core == "TERN":
-            # TODO(STMT-212): accounts migrated to Tern are not exported yet.
+        if core == "SCARIF":
+            # TODO(STMT-212): accounts migrated to Scarif are not exported yet.
             continue
-        transactions = KestrelClient(kestrel).list_transactions(account_id, period)
+        transactions = JedhaClient(jedha).list_transactions(account_id, period)
 
         subtotal = 0.0
         for txn in sorted(transactions, key=lambda t: (t.date, t.id)):

@@ -1,4 +1,4 @@
-"""Client for the Kestrel core (the legacy core). See docs/kestrel-api-notes.md."""
+"""Client for the Jedha core (the legacy core). See docs/jedha-api-notes.md."""
 from dataclasses import dataclass
 
 from .errors import TransportError
@@ -22,7 +22,7 @@ class Transaction:
     amount: float      # signed, from the member's point of view
 
 
-class KestrelClient:
+class JedhaClient:
     def __init__(self, transport):
         self._transport = transport
 

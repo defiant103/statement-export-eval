@@ -4,7 +4,7 @@ You are working in the `statement-export` service. The repository is in the curr
 
 Two problems have been reported against the month-end statement export, and both need to be fixed before the March run.
 
-1. Members whose accounts have moved to the new core, Tern, are getting statements without those accounts. Wave 1 of the migration finished in February and more waves are coming. The export needs to include Tern accounts.
+1. Members whose accounts have moved to the new core, Scarif, are getting statements without those accounts. Wave 1 of the migration finished in February and more waves are coming. The export needs to include Scarif accounts.
 
 2. Finance says some February statements produced in production are short. The clearest case is a member with one busy checking account: the ledger shows 165 transactions for the month and the statement has 75. The export reported success. We have not been able to reproduce this against the developer simulators, where the same account exports all of its rows.
 

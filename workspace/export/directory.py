@@ -6,7 +6,7 @@ class StaticDirectory:
 
     def __init__(self, members, home_cores):
         self._members = dict(members)        # member_id -> [account_id, ...] in statement order
-        self._home_cores = dict(home_cores)  # account_id -> "KESTREL" | "TERN" | "MIGRATING"
+        self._home_cores = dict(home_cores)  # account_id -> "JEDHA" | "SCARIF" | "MIGRATING"
 
     def accounts_for(self, member_id):
         return list(self._members[member_id])

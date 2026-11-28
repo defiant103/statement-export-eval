@@ -15,7 +15,7 @@ class Fault(Exception):
         self.body = body
 
 
-class StrictKestrel:
+class StrictJedha:
     def __init__(self, accounts, holds=None, fault_on_call=None, cut_short_at=None):
         self._accounts = accounts
         self._holds = holds or {}
@@ -52,7 +52,7 @@ class StrictKestrel:
         }
 
 
-class StrictTern:
+class StrictScarif:
     PAGE_SIZE = 20
 
     def __init__(self, accounts, end_cursor=None):

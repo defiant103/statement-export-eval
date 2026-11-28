@@ -27,10 +27,10 @@ The ticket reports two problems. Accounts on the new core are missing from state
 | Check | Points | What it shows |
 | --- | --- | --- |
 | Complete read of a 165-row account against production paging | 15 | Found the cause of the short export |
-| Tern accounts included, period bounds respected | 15 | Built the new integration |
+| Scarif accounts included, period bounds respected | 15 | Built the new integration |
 | The same paging fault fixed in the holds report (5 if left alone, but the closing note names the report, says it has the same fault and gives a reason for leaving it) | 10 | Fixed the cause, not only the reported symptom |
 | A dead core or a short list fails the export instead of shortening it | 10 | No silent partial statements |
-| Tern DEBIT and CREDIT shown from the member's point of view | 10 | Inferred the sign convention from the captured balances |
+| Scarif DEBIT and CREDIT shown from the member's point of view | 10 | Inferred the sign convention from the captured balances |
 | PENDING and REJECTED postings left off | 10 | Noticed what production returns that the simulator does not |
 | Accounts in migration, unknown or missing fail the export and are never read | 10 | Fails closed |
 | Existing format unchanged for a legacy-only member | 10 | No regression |

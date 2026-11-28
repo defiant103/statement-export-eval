@@ -1,4 +1,4 @@
-"""Client for the Kestrel core (the legacy core). See docs/kestrel-api-notes.md."""
+"""Client for the Jedha core (the legacy core). See docs/jedha-api-notes.md."""
 from .errors import ExportError, TransportError
 from .money import parse_decimal_cents
 from .records import Hold, Transaction
@@ -6,7 +6,7 @@ from .records import Hold, Transaction
 PAGE_SIZE = 25
 
 
-class KestrelClient:
+class JedhaClient:
     def __init__(self, transport):
         self._transport = transport
 
@@ -20,7 +20,7 @@ class KestrelClient:
         count, so a short list can never pass as complete.
         """
         def fail(problem):
-            return ExportError(f"Kestrel {op} for account {account_id}: {problem}", account_id)
+            return ExportError(f"Jedha {op} for account {account_id}: {problem}", account_id)
 
         items, token, total, seen_tokens = [], None, None, set()
         while True:
@@ -54,7 +54,7 @@ class KestrelClient:
                                 cents=parse_decimal_cents(item["amount"]))
                     for item in items]
         except (KeyError, ValueError) as e:
-            raise ExportError(f"Kestrel returned an unreadable transaction for account {account_id}: {e}",
+            raise ExportError(f"Jedha returned an unreadable transaction for account {account_id}: {e}",
                               account_id) from e
 
     def list_holds(self, account_id):
@@ -65,4 +65,4 @@ class KestrelClient:
                          cents=parse_decimal_cents(item["amount"]))
                     for item in items]
         except (KeyError, ValueError) as e:
-            raise ExportError(f"Kestrel returned an unreadable hold for account {account_id}: {e}", account_id) from e
+            raise ExportError(f"Jedha returned an unreadable hold for account {account_id}: {e}", account_id) from e

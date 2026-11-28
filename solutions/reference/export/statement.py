@@ -7,12 +7,12 @@ import csv
 import io
 
 from .errors import ExportError
-from .kestrel_client import KestrelClient
+from .jedha_client import JedhaClient
 from .money import format_cents
-from .tern_client import TernClient
+from .scarif_client import ScarifClient
 
 
-def build_statement(member_id, period, *, directory, kestrel, tern=None):
+def build_statement(member_id, period, *, directory, jedha, scarif=None):
     """Return the statement for `member_id` and `period` ("YYYY-MM") as CSV text.
 
     Raises ExportError when a complete, correct statement cannot be produced.
@@ -25,12 +25,12 @@ def build_statement(member_id, period, *, directory, kestrel, tern=None):
             core = directory.home_core(account_id)
         except KeyError as e:
             raise ExportError(f"account {account_id} is not in the directory", account_id) from e
-        if core == "KESTREL":
-            readers.append((account_id, KestrelClient(kestrel)))
-        elif core == "TERN":
-            if tern is None:
-                raise ExportError(f"account {account_id} is on Tern and no Tern transport was given", account_id)
-            readers.append((account_id, TernClient(tern)))
+        if core == "JEDHA":
+            readers.append((account_id, JedhaClient(jedha)))
+        elif core == "SCARIF":
+            if scarif is None:
+                raise ExportError(f"account {account_id} is on Scarif and no Scarif transport was given", account_id)
+            readers.append((account_id, ScarifClient(scarif)))
         else:
             raise ExportError(f"account {account_id} has home core {core!r} and must not be read", account_id)
 

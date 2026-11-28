@@ -1,6 +1,6 @@
-# Tern core: API notes
+# Scarif core: API notes
 
-Tern is the new core. Accounts are being migrated to it from Kestrel in waves.
+Scarif is the new core. Accounts are being migrated to it from Jedha in waves.
 These notes are from the vendor's onboarding pack and are brief.
 
 ## GetPostings

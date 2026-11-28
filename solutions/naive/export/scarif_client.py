@@ -1,10 +1,10 @@
-"""Client for the Tern core."""
+"""Client for the Scarif core."""
 import calendar
 
-from .kestrel_client import Transaction
+from .jedha_client import Transaction
 
 
-class TernClient:
+class ScarifClient:
     def __init__(self, transport):
         self._transport = transport
 

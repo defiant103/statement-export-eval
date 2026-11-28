@@ -26,7 +26,7 @@ from checks import PERIOD  # noqa: E402
 from grade import grade  # noqa: E402
 import checks  # noqa: E402
 from sandbox import invoke, sandbox_on, sandbox_status  # noqa: E402
-from strict_sims import Directory, StrictKestrel, StrictTern  # noqa: E402
+from strict_sims import Directory, StrictJedha, StrictScarif  # noqa: E402
 
 EXPECTED = {"baseline": (False, 13.5), "naive": (True, 28.5), "reference": (True, 100)}  # (tests pass, score)
 
@@ -73,7 +73,7 @@ def fairness():
         with tempfile.TemporaryDirectory() as tmp:
             ws = build(tmp, HERE / "solutions" / "reference")
             if leave_holds:
-                path = ws / "export" / "kestrel_client.py"
+                path = ws / "export" / "jedha_client.py"
                 text = path.read_text()
                 path.write_text(text[:text.index("    def list_holds")].rstrip() + "\n" + LEFT_HOLDS)
             note_file = None
@@ -149,7 +149,7 @@ def escape():
         (ws / "export" / "escape_target.json").write_text(json.dumps(target))
         report = grade(ws)
         probe = invoke(ws, "statement", target["probe_member"], period=PERIOD, directory=Directory({}, {}),
-                       kestrel=StrictKestrel({}), tern=StrictTern({}))
+                       jedha=StrictJedha({}), scarif=StrictScarif({}))
         received = connections(server)
         survivors = kill_survivors(target["marker"])
         secret = canary.read_text()

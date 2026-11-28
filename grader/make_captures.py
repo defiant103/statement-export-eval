@@ -11,9 +11,9 @@ sys.path.insert(0, str(ROOT / "grader"))
 sys.path.insert(0, str(ROOT / "workspace"))
 
 from export.errors import TransportError  # noqa: E402
-from export.kestrel_client import KestrelClient  # noqa: E402
+from export.jedha_client import JedhaClient  # noqa: E402
 from checks import money  # noqa: E402
-from strict_sims import Fault, StrictKestrel, StrictTern  # noqa: E402
+from strict_sims import Fault, StrictJedha, StrictScarif  # noqa: E402
 
 LOGS = ROOT / "workspace" / "logs"
 LOGS.mkdir(exist_ok=True)
@@ -42,7 +42,7 @@ class Recorder:
                 f.write(json.dumps({"note": note}) + "\n")
 
 
-# --- Kestrel: the unmodified export code reading the busy checking account in production ---
+# --- Jedha: the unmodified export code reading the busy checking account in production ---
 words = ["Card purchase", "Payroll deposit", "ATM withdrawal", "Transfer in", "Bill payment, utilities"]
 rows = []
 for i in range(165):
@@ -52,12 +52,12 @@ for i in range(165):
         cents = -cents
     rows.append({"id": f"KQ{i:05d}", "posted": f"2026-02-{(i * 28 // 165) + 1:02d}", "description": word,
                  "amount": money(cents)})
-rec = Recorder(StrictKestrel({"K-10482-C": rows}), "kestrel")
-got = KestrelClient(rec).list_transactions("K-10482-C", "2026-02")
+rec = Recorder(StrictJedha({"J-10482-C": rows}), "jedha")
+got = JedhaClient(rec).list_transactions("J-10482-C", "2026-02")
 assert len(got) == 75, len(got)
-rec.write("prod-kestrel-2026-03-01.jsonl")
+rec.write("prod-jedha-2026-03-01.jsonl")
 
-# --- Tern: the migration team's smoke-test script against production, which looped ---
+# --- Scarif: the migration team's smoke-test script against production, which looped ---
 postings = []
 for i in range(29):
     postings.append({
@@ -68,13 +68,13 @@ for i in range(29):
                      else ("Card purchase", "ATM withdrawal", "Bill payment, utilities")[i % 3],
         "status": "PENDING" if i in (7, 21) else "REJECTED" if i == 14 else "POSTED",
     })
-rec = Recorder(StrictTern({"T-20031-S": postings}, end_cursor=""), "tern")
-params = {"account_id": "T-20031-S", "from_date": "2026-02-01", "to_date": "2026-02-28"}
+rec = Recorder(StrictScarif({"S-20031-S": postings}, end_cursor=""), "scarif")
+params = {"account_id": "S-20031-S", "from_date": "2026-02-01", "to_date": "2026-02-28"}
 for _ in range(5):
     reply = rec.call("GetPostings", dict(params))
     if reply["cursor"] is None:
         break
     params["cursor"] = reply["cursor"]
-rec.write("prod-tern-smoke-2026-02-20.jsonl",
+rec.write("prod-scarif-smoke-2026-02-20.jsonl",
           note="capture ends here: the script did not finish and was stopped by hand")
 print("captures written")

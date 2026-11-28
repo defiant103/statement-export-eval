@@ -1,6 +1,6 @@
 # statement-export
 
-Builds the month-end statement export for Lakeside Credit Union members.
+Builds the month-end statement export for Ferrix Credit Union members.
 
 - `export/` the service code. `build_statement` in `export/statement.py` builds statements and `build_holds_report` in `export/holds_report.py` builds the daily holds report.
 - `sim/` developer simulators for the two cores, and their fixtures. Shared with other teams.

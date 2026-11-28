@@ -17,7 +17,7 @@ that member's statement and pages the on-call. It never sends a partial one.
 
 ## Accounts in migration
 
-While an account is being moved from Kestrel to Tern, the directory reports its
+While an account is being moved from Jedha to Scarif, the directory reports its
 home core as `MIGRATING`. During that window neither core's view of the account
 is reliable, and the account must not be read from either. The same applies to
 any home core value the export does not recognize, and to an account the

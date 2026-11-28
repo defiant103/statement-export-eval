@@ -82,9 +82,9 @@ try:
     import export
     if spec["entry"] == "statement":
         text = export.build_statement(spec["member_id"], spec["period"], directory=_Directory(),
-                                      kestrel=_Transport("kestrel"), tern=_Transport("tern"))
+                                      jedha=_Transport("jedha"), scarif=_Transport("scarif"))
     else:
-        text = export.build_holds_report(spec["member_id"], directory=_Directory(), kestrel=_Transport("kestrel"))
+        text = export.build_holds_report(spec["member_id"], directory=_Directory(), jedha=_Transport("jedha"))
     done = {"text": text}
 except BaseException as e:
     kind = type(e).__name__
@@ -208,7 +208,7 @@ class Result:
         return account_id in self.message or self.account_id == account_id
 
 
-def invoke(workspace, entry, member_id, *, directory, kestrel, tern=None, period=None):
+def invoke(workspace, entry, member_id, *, directory, jedha, scarif=None, period=None):
     """Call the attempt's entry point ("statement" or "holds") and return a Result."""
     workspace = os.path.realpath(workspace)
     spec = {"workspace": workspace, "entry": entry, "member_id": member_id, "period": period}
@@ -229,7 +229,7 @@ def invoke(workspace, entry, member_id, *, directory, kestrel, tern=None, period
                 message = json.loads(line)
                 if "done" in message:
                     return _result(message["done"])
-                _send(proc, _answer(message, directory, kestrel, tern))
+                _send(proc, _answer(message, directory, jedha, scarif))
             return Result(error="Timeout" if timed_out.is_set() else "Crashed")
         except (ValueError, KeyError, TypeError, AttributeError, OSError):
             return Result(error="Timeout" if timed_out.is_set() else "Crashed",
@@ -244,13 +244,13 @@ def _send(proc, message):
     proc.stdin.flush()
 
 
-def _answer(message, directory, kestrel, tern):
+def _answer(message, directory, jedha, scarif):
     try:
         if message["call"] == "accounts_for":
             return {"ok": directory.accounts_for(message["key"])}
         if message["call"] == "home_core":
             return {"ok": directory.home_core(message["key"])}
-        core = {"kestrel": kestrel, "tern": tern}[message["call"]]
+        core = {"jedha": jedha, "scarif": scarif}[message["call"]]
         return {"ok": core.call(message["op"], message["params"])}
     except Fault as fault:
         return {"fault": [fault.status, fault.body]}

@@ -9,7 +9,7 @@ import io
 import pathlib
 
 from sandbox import invoke
-from strict_sims import Directory, StrictKestrel, StrictTern
+from strict_sims import Directory, StrictJedha, StrictScarif
 
 PERIOD = "2026-02"
 GOLDEN = pathlib.Path(__file__).parent / "golden"
@@ -30,7 +30,7 @@ def to_csv(rows):
     return out.getvalue()
 
 
-def kestrel_rows(prefix, count):
+def jedha_rows(prefix, count):
     rows = []
     for i in range(count):
         cents = (i * 211 + 475) % 12000 + 50
@@ -42,7 +42,7 @@ def kestrel_rows(prefix, count):
     return rows
 
 
-def tern_rows(prefix, count, sides=("CREDIT",), statuses=("POSTED",)):
+def scarif_rows(prefix, count, sides=("CREDIT",), statuses=("POSTED",)):
     rows = []
     for i in range(count):
         side = sides[i % len(sides)]
@@ -58,11 +58,11 @@ def public(rows):
     return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
 
 
-def kestrel_lines(rows):
+def jedha_lines(rows):
     return [(r["posted"], r["id"], r["description"], r["_cents"]) for r in rows]
 
 
-def tern_lines(rows):
+def scarif_lines(rows):
     return [(r["value_date"], r["posting_id"], r["narrative"],
              r["amount_minor"] if r["side"] == "CREDIT" else -r["amount_minor"])
             for r in rows if r["status"] == "POSTED" and r["value_date"].startswith(PERIOD)]
@@ -83,9 +83,9 @@ def expected(member_id, accounts):
 
 # ---- helpers ----
 
-def statement(ws, member_id, directory, kestrel=None, tern=None):
+def statement(ws, member_id, directory, jedha=None, scarif=None):
     return invoke(ws, "statement", member_id, period=PERIOD, directory=directory,
-                  kestrel=kestrel or StrictKestrel({}), tern=tern or StrictTern({}))
+                  jedha=jedha or StrictJedha({}), scarif=scarif or StrictScarif({}))
 
 
 def compare(result, want, points):
@@ -118,17 +118,17 @@ def failure(result, share, label, named=True, read=False):
 # ---- the checks ----
 
 def check_regression(ws):
-    rows = kestrel_rows("KR", 12)
-    d = Directory({"2001": ["K-2001-S"]}, {"K-2001-S": "KESTREL"})
-    result = statement(ws, "2001", d, StrictKestrel({"K-2001-S": public(rows)}))
+    rows = jedha_rows("KR", 12)
+    d = Directory({"2001": ["J-2001-S"]}, {"J-2001-S": "JEDHA"})
+    result = statement(ws, "2001", d, StrictJedha({"J-2001-S": public(rows)}))
     return compare(result, (GOLDEN / "legacy_2001.csv").read_text(), 10)
 
 
-def check_kestrel_paging(ws):
-    rows = kestrel_rows("KP", 165)
-    d = Directory({"2002": ["K-2002-C"]}, {"K-2002-C": "KESTREL"})
-    result = statement(ws, "2002", d, StrictKestrel({"K-2002-C": public(rows)}))
-    return compare(result, expected("2002", [("K-2002-C", kestrel_lines(rows))]), 15)
+def check_jedha_paging(ws):
+    rows = jedha_rows("KP", 165)
+    d = Directory({"2002": ["J-2002-C"]}, {"J-2002-C": "JEDHA"})
+    result = statement(ws, "2002", d, StrictJedha({"J-2002-C": public(rows)}))
+    return compare(result, expected("2002", [("J-2002-C", jedha_lines(rows))]), 15)
 
 
 def holds_rows():
@@ -138,14 +138,14 @@ def holds_rows():
 
 
 def holds_result(ws):
-    d = Directory({"2010": ["K-2010-C"]}, {"K-2010-C": "KESTREL"})
-    kestrel = StrictKestrel({"K-2010-C": []}, holds={"K-2010-C": holds_rows()})
-    return invoke(ws, "holds", "2010", directory=d, kestrel=kestrel)
+    d = Directory({"2010": ["J-2010-C"]}, {"J-2010-C": "JEDHA"})
+    jedha = StrictJedha({"J-2010-C": []}, holds={"J-2010-C": holds_rows()})
+    return invoke(ws, "holds", "2010", directory=d, jedha=jedha)
 
 
 def holds_want():
     return to_csv([["account", "placed", "id", "reason", "amount"]]
-                  + [["K-2010-C", h["placed"], h["id"], h["reason"], h["amount"]]
+                  + [["J-2010-C", h["placed"], h["id"], h["reason"], h["amount"]]
                      for h in sorted(holds_rows(), key=lambda h: (h["placed"], h["id"]))])
 
 
@@ -200,70 +200,70 @@ def check_holds_twin(ws):
 def check_no_silent_partial(ws):
     # 250 rows is more than the largest page the core allows, so every correct
     # client needs a second call whatever page size it chose.
-    rows = kestrel_rows("KF", 250)
-    d = Directory({"2008": ["K-2008-C"]}, {"K-2008-C": "KESTREL"})
+    rows = jedha_rows("KF", 250)
+    d = Directory({"2008": ["J-2008-C"]}, {"J-2008-C": "JEDHA"})
 
     def run(**faults):
-        return statement(ws, "2008", d, StrictKestrel({"K-2008-C": public(rows)}, **faults))
+        return statement(ws, "2008", d, StrictJedha({"J-2008-C": public(rows)}, **faults))
 
     # Refusing everything is not the skill being scored: the same account must
     # export correctly when nothing is wrong.
-    if compare(run(), expected("2008", [("K-2008-C", kestrel_lines(rows))]), 1)[0] == 0:
+    if compare(run(), expected("2008", [("J-2008-C", jedha_lines(rows))]), 1)[0] == 0:
         return 0, "not scored: the same account does not export correctly when the core is healthy"
     scored = [failure(run(fault_on_call=2), 5, "core down mid-list"),
               failure(run(cut_short_at=130), 5, "list ends early while the core reports more rows")]
     return sum(p for p, _ in scored), "; ".join(note for _, note in scored)
 
 
-def _tern_case(ws, member, account, rows, points, end_cursor=None, extra=()):
-    k_rows = kestrel_rows("KT", 5)
+def _scarif_case(ws, member, account, rows, points, end_cursor=None, extra=()):
+    k_rows = jedha_rows("KT", 5)
     k_acct = f"K-{member}-S"
-    d = Directory({member: [k_acct, account]}, {k_acct: "KESTREL", account: "TERN"})
-    result = statement(ws, member, d, StrictKestrel({k_acct: public(k_rows)}),
-                       StrictTern({account: list(rows) + list(extra)}, end_cursor=end_cursor))
-    return compare(result, expected(member, [(k_acct, kestrel_lines(k_rows)), (account, tern_lines(rows))]), points)
+    d = Directory({member: [k_acct, account]}, {k_acct: "JEDHA", account: "SCARIF"})
+    result = statement(ws, member, d, StrictJedha({k_acct: public(k_rows)}),
+                       StrictScarif({account: list(rows) + list(extra)}, end_cursor=end_cursor))
+    return compare(result, expected(member, [(k_acct, jedha_lines(k_rows)), (account, scarif_lines(rows))]), points)
 
 
-def check_tern_included(ws):
+def check_scarif_included(ws):
     def posting(ident, date):
         return {"posting_id": ident, "value_date": date, "amount_minor": 500, "side": "CREDIT",
                 "narrative": "Transfer in", "status": "POSTED"}
 
     outside_period = [posting("TX90001", "2026-01-31"), posting("TX90002", "2026-03-01")]
-    return _tern_case(ws, "2003", "T-2003-C", tern_rows("TA", 30), 15, extra=outside_period)
+    return _scarif_case(ws, "2003", "S-2003-C", scarif_rows("TA", 30), 15, extra=outside_period)
 
 
-def check_tern_sign(ws):
-    return _tern_case(ws, "2004", "T-2004-S", tern_rows("TB", 14, sides=("CREDIT", "DEBIT", "DEBIT")), 10)
+def check_scarif_sign(ws):
+    return _scarif_case(ws, "2004", "S-2004-S", scarif_rows("TB", 14, sides=("CREDIT", "DEBIT", "DEBIT")), 10)
 
 
-def check_tern_status(ws):
+def check_scarif_status(ws):
     statuses = ("POSTED", "PENDING", "POSTED", "REJECTED")
-    return _tern_case(ws, "2005", "T-2005-S", tern_rows("TC", 15, statuses=statuses), 10)
+    return _scarif_case(ws, "2005", "S-2005-S", scarif_rows("TC", 15, statuses=statuses), 10)
 
 
-def check_tern_empty_cursor(ws):
-    return _tern_case(ws, "2006", "T-2006-C", tern_rows("TD", 30), 5, end_cursor="")
+def check_scarif_empty_cursor(ws):
+    return _scarif_case(ws, "2006", "S-2006-C", scarif_rows("TD", 30), 5, end_cursor="")
 
 
 def check_fail_closed(ws):
-    good, bad = "K-2009-S", "X-2009-S"
-    rows = kestrel_rows("KH", 4)
+    good, bad = "J-2009-S", "X-2009-S"
+    rows = jedha_rows("KH", 4)
 
     def run(accounts, cores):
-        kestrel = StrictKestrel({good: public(rows), bad: public(kestrel_rows("KX", 3))})
-        tern = StrictTern({bad: tern_rows("TX", 3)})
-        result = statement(ws, "2009", Directory({"2009": accounts}, cores), kestrel, tern)
-        read = any(params.get("account_id") == bad for _, params in kestrel.calls + tern.calls)
+        jedha = StrictJedha({good: public(rows), bad: public(jedha_rows("KX", 3))})
+        scarif = StrictScarif({bad: scarif_rows("TX", 3)})
+        result = statement(ws, "2009", Directory({"2009": accounts}, cores), jedha, scarif)
+        read = any(params.get("account_id") == bad for _, params in jedha.calls + scarif.calls)
         return result, read
 
-    healthy, _ = run([good], {good: "KESTREL"})
-    if compare(healthy, expected("2009", [(good, kestrel_lines(rows))]), 1)[0] == 0:
+    healthy, _ = run([good], {good: "JEDHA"})
+    if compare(healthy, expected("2009", [(good, jedha_lines(rows))]), 1)[0] == 0:
         return 0, "not scored: the member's readable account does not export correctly on its own"
     scored = []
     for label, core, share in (("MIGRATING", "MIGRATING", 4), ("unrecognized core", "ARCHIVED", 3),
                                ("missing from the directory", None, 3)):
-        cores = {good: "KESTREL", **({bad: core} if core else {})}
+        cores = {good: "JEDHA", **({bad: core} if core else {})}
         result, read = run([good, bad], cores)
         scored.append(failure(result, share, label, named=result.names(bad), read=read))
     return sum(p for p, _ in scored), "; ".join(note for _, note in scored)
@@ -274,25 +274,25 @@ def check_zero_formatting(ws):
     rows = [{"id": f"KZ0000{n}", "posted": f"{PERIOD}-0{n + 2}", "description": text,
              "amount": money(cents), "_cents": cents}
             for n, (text, cents) in enumerate(lines, 1)]
-    d = Directory({"2007": ["K-2007-S"]}, {"K-2007-S": "KESTREL"})
-    result = statement(ws, "2007", d, StrictKestrel({"K-2007-S": public(rows)}))
+    d = Directory({"2007": ["J-2007-S"]}, {"J-2007-S": "JEDHA"})
+    result = statement(ws, "2007", d, StrictJedha({"J-2007-S": public(rows)}))
     if result.text and "-0.00" in result.text:
         return 0, "a zero amount is written -0.00"
-    return compare(result, expected("2007", [("K-2007-S", kestrel_lines(rows))]), 3)
+    return compare(result, expected("2007", [("J-2007-S", jedha_lines(rows))]), 3)
 
 
 # name: (maximum points, what it shows, function)
 CHECKS = {
-    "kestrel_paging": (15, "Complete read of a 165-row account against production paging", check_kestrel_paging),
-    "tern_included": (15, "Tern accounts included, period bounds respected", check_tern_included),
+    "jedha_paging": (15, "Complete read of a 165-row account against production paging", check_jedha_paging),
+    "scarif_included": (15, "Scarif accounts included, period bounds respected", check_scarif_included),
     "holds_twin": (10, "The same paging fault fixed in the holds report", check_holds_twin),
     "no_silent_partial": (10, "A dead core or a short list fails the export instead of shortening it",
                           check_no_silent_partial),
-    "tern_sign": (10, "Tern DEBIT and CREDIT shown from the member's point of view", check_tern_sign),
-    "tern_status": (10, "PENDING and REJECTED postings left off", check_tern_status),
+    "scarif_sign": (10, "Scarif DEBIT and CREDIT shown from the member's point of view", check_scarif_sign),
+    "scarif_status": (10, "PENDING and REJECTED postings left off", check_scarif_status),
     "fail_closed": (10, "Accounts in migration, unknown or missing fail the export and are never read",
                     check_fail_closed),
     "regression": (10, "Existing format unchanged for a legacy-only member", check_regression),
-    "tern_empty_cursor": (5, "Empty-string cursor ends the list", check_tern_empty_cursor),
+    "scarif_empty_cursor": (5, "Empty-string cursor ends the list", check_scarif_empty_cursor),
     "zero_formatting": (3, "Zero is written 0.00", check_zero_formatting),
 }

@@ -1,4 +1,4 @@
-"""Client for the Tern core. See docs/tern-api-notes.md."""
+"""Client for the Scarif core. See docs/scarif-api-notes.md."""
 import calendar
 
 from .errors import ExportError, TransportError
@@ -7,7 +7,7 @@ from .records import Transaction
 MAX_PAGES = 10_000
 
 
-class TernClient:
+class ScarifClient:
     def __init__(self, transport):
         self._transport = transport
 
@@ -23,17 +23,17 @@ class TernClient:
             try:
                 reply = self._transport.call("GetPostings", params)
             except TransportError as e:
-                raise ExportError(f"Tern read failed for account {account_id}: {e}", account_id) from e
+                raise ExportError(f"Scarif read failed for account {account_id}: {e}", account_id) from e
             postings.extend(reply["postings"])
             cursor = reply.get("cursor")
             if not cursor:  # absent, null or empty all mean the list has ended
                 break
             if cursor in seen_cursors:
-                raise ExportError(f"Tern repeated a cursor for account {account_id}", account_id)
+                raise ExportError(f"Scarif repeated a cursor for account {account_id}", account_id)
             seen_cursors.add(cursor)
             params["cursor"] = cursor
         else:
-            raise ExportError(f"Tern list for account {account_id} did not end", account_id)
+            raise ExportError(f"Scarif list for account {account_id} did not end", account_id)
 
         transactions = []
         seen_ids = set()
@@ -58,6 +58,6 @@ class TernClient:
                 transactions.append(Transaction(id=posting["posting_id"], date=posting["value_date"],
                                                 description=posting["narrative"], cents=cents))
             except (KeyError, ValueError) as e:
-                raise ExportError(f"Tern returned an unreadable posting for account {account_id}: {e}",
+                raise ExportError(f"Scarif returned an unreadable posting for account {account_id}: {e}",
                                   account_id) from e
         return transactions

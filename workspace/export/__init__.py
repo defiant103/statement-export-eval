@@ -1,4 +1,4 @@
-"""Month-end statement export for Lakeside Credit Union."""
+"""Month-end statement export for Ferrix Credit Union."""
 from .errors import ExportError, TransportError
 from .holds_report import build_holds_report
 from .statement import build_statement

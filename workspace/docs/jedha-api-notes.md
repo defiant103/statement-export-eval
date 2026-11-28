@@ -1,6 +1,6 @@
-# Kestrel core: API notes
+# Jedha core: API notes
 
-Kestrel is the legacy core. This service uses two of its operations.
+Jedha is the legacy core. This service uses two of its operations.
 
 ## ListTransactions
 

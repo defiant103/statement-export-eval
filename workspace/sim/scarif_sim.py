@@ -1,4 +1,4 @@
-"""Developer simulator for the Tern core. Shared with other teams: do not modify."""
+"""Developer simulator for the Scarif core. Shared with other teams: do not modify."""
 import datetime
 
 from export.errors import TransportError
@@ -6,7 +6,7 @@ from export.errors import TransportError
 PAGE_SIZE = 20
 
 
-class TernSim:
+class ScarifSim:
     def __init__(self, accounts):
         self._accounts = accounts  # account_id -> [ {posting_id, value_date, amount_minor, side, narrative}, ... ]
 
